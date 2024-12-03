@@ -113,7 +113,7 @@ i2c:
   sda: GPIO11
   scl: GPIO12
   scan: true
-  frequency: 100kHz
+  frequency: 50kHz
   id: bus_a
 
 spi:
