@@ -1,6 +1,6 @@
 ---
 title: M5Stack AirQ
-date-published: 2024-11-14
+date-published: 2025-01-08
 type: sensor
 standard: global
 difficulty: 2
