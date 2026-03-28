@@ -31,6 +31,18 @@ This YAML was adapted from a sample provided by **joshblake87** at
 
 - It doesn't utilize the onboard 450mAh battery.
 
+## LED air quality indicator (planned)
+
+The SK6812 LED can reflect overall room air quality (not implemented in the example YAML yet). A practical approach:
+
+1. **Define “overall” state** — Combine signals already in the config: e.g. PM2.5 (`PM2_5`), CO2 (`CO2`), VOC/NOX indices (`voc`, `nox`), or the existing template text sensors `iaq_voc` / `iaq_nox` strings. Alternatively add a **template sensor** with a numeric **0–100** or **1–4** score from weighted thresholds.
+2. **Map state to color** — Use green / yellow / orange / red (and optionally blue for “warming up” or offline). Single LED: solid color or low-brightness blink for “bad.”
+3. **Update the LED in ESPHome** — Prefer **`on_value`** on a slow-updating template sensor or **`interval`** + script calling `light.turn_on` / `light.control` with `rgb_color` / `brightness` on `id_led`. Avoid updating every second to limit flicker; align with `sensor_interval` or add a **debounce** / **min delta** in the template.
+4. **Respect sensor warm-up** — Mirror the display: skip or show **amber** until `uptime_sensor` exceeds ~120 s and critical sensors are valid (`isnan` checks in lambda).
+5. **Optional: HA-only** — A **Home Assistant** automation on numeric air-quality entities can call `light.turn_on` on the device entity instead; keeps firmware simple but requires HA online.
+
+Once implemented, document valid **`restore_mode`** values for `esp32_rmt_led_strip` in ESPHome; choose whether the LED should recall its last state after reboot or default to off/on via **`led_restore_mode`**.
+
 ## GPIO Pinout
 
 | Pin    | Function           |
@@ -64,6 +76,7 @@ This YAML was adapted from a sample provided by **joshblake87** at
 #    wifi_ssid: "YOUR_WIFI_SSID"
 #    wifi_password: "YOUR_WIFI_PASSWORD"
 # 3. Adjust other substitutions as needed (devicename, location, etc)
+# 4. led_restore_mode: RESTORE_AND_OFF (default) or RESTORE_AND_ON after power loss
 
 substitutions:
   devicename: airq
@@ -74,6 +87,7 @@ substitutions:
   altitude_compensation: "0m" # Local altitude for CO2 sensor
   temp_offset: -3.0
   temp_time_constant: 1200
+  led_restore_mode: RESTORE_AND_OFF
 
 esphome:
   name: ${devicename}
@@ -153,7 +167,7 @@ light:
     num_leds: 1
     chipset: SK6812
     name: "LED"
-    restore_mode: RESTORE_AND_OFF
+    restore_mode: ${led_restore_mode}
     id: id_led
     color_correct: [20%, 20%, 20%]
 
