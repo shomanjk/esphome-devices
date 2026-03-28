@@ -500,11 +500,11 @@ display:
 
       // SCD40 LINKS
       it.printf(5, 52,  id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SCD40");
-      it.printf(5, 75,  id(f12), COLOR_ON, TextAlign::TOP_LEFT, "Co2:");
+      it.printf(5, 75,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Co2:");
       it.printf(90,75,  id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.0f", id(CO2).state);
-      it.printf(5, 95,  id(f12), COLOR_ON, TextAlign::TOP_LEFT, "Temp:");
+      it.printf(5, 95,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Temp:");
       it.printf(90,95,  id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", id(temperature).state);
-      it.printf(5,115,  id(f12), COLOR_ON, TextAlign::TOP_LEFT, "Humid:");
+      it.printf(5,115,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Humid:");
       it.printf(90,115, id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", id(humidity).state);
 
       // SEN55 RECHTS
@@ -516,14 +516,14 @@ display:
       };
       for(int i = 0; i < 6; i++) {
         int y = 25 + i * 20;
-        it.printf(105, y, id(f12), COLOR_ON, TextAlign::TOP_LEFT,  labels[i]);
+        it.printf(105, y, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT,  labels[i]);
         it.printf(190, y, id(f16), COLOR_ON, TextAlign::TOP_RIGHT,
                   i < 4 ? "%.1f" : "%.0f", vals[i]);
       }
 
       // 6) Wi-Fi (rechtsonder, y=160→200)
       it.printf(105,161, id(f16), COLOR_ON, TextAlign::TOP_LEFT, "WIFI");
-      it.printf(105,180, id(f12), COLOR_ON, TextAlign::TOP_LEFT, "%s", id(ssid).state.c_str());
+      it.printf(105,180, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "%s", id(ssid).state.c_str());
 
       // 7) Logo of friendlyname (linksonder)
       it.filled_rectangle(1, 161, 98, 39, COLOR_ON);
@@ -534,977 +534,126 @@ font:
       type: gfonts
       family: Noto Sans Display
       weight: 500
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f16
     size: 16
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f18
     size: 18
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f12
     size: 12
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
+    id: sensor_label_font
+    size: 14
+  - file:
+      type: gfonts
+      family: Noto Sans Display
+      weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f24
     size: 24
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f36
     size: 36
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f48
     size: 48
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f32
     size: 32
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
-
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 500
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f64
     size: 64
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
-
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 800
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f64b
     size: 64
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
-
   - file:
       type: gfonts
       family: Noto Sans Display
       weight: 800
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f55b
     size: 55
-    glyphs:
-      [
-        "&",
-        "@",
-        "!",
-        ",",
-        ".",
-        '"',
-        "%",
-        "(",
-        ")",
-        "+",
-        "-",
-        "_",
-        ":",
-        "°",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        " ",
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "w",
-        "x",
-        "y",
-        "z",
-        "å",
-        "ä",
-        "ö",
-        "/",
-        "µ",
-        "³",
-        "’",
-      ]
 
-  - file:
-      type: gfonts
-      family: Material Symbols Sharp
-      weight: 400
-    id: font_weather_icons_xsmall
-    size: 20
-    glyphs:
-      - "\U0000F159" # clear-night
-      - "\U0000F15B" # cloudy
-      - "\U0000F172" # partlycloudy
-      - "\U0000E818" # fog
-      - "\U0000F67F" # hail
-      - "\U0000EBDB" # lightning, lightning-rainy
-      - "\U0000F61F" # pouring
-      - "\U0000F61E" # rainy
-      - "\U0000F61C" # snowy
-      - "\U0000F61D" # snowy-rainy
-      - "\U0000E81A" # sunny
-      - "\U0000EFD8" # windy, windy-variant
-      - "\U0000F7F3" # exceptional
-  - file:
-      type: gfonts
-      family: Material Symbols Sharp
-      weight: 400
-    id: font_weather_icons_small
-    size: 32
-    glyphs:
-      - "\U0000F159" # clear-night
-      - "\U0000F15B" # cloudy
-      - "\U0000F172" # partlycloudy
-      - "\U0000E818" # fog
-      - "\U0000F67F" # hail
-      - "\U0000EBDB" # lightning, lightning-rainy
-      - "\U0000F61F" # pouring
-      - "\U0000F61E" # rainy
-      - "\U0000F61C" # snowy
-      - "\U0000F61D" # snowy-rainy
-      - "\U0000E81A" # sunny
-      - "\U0000EFD8" # windy, windy-variant
-      - "\U0000F7F3" # exceptional
+# ----------------------------------------------------------
+# Unused weather icons — enable when the display lambda draws them.
+# ----------------------------------------------------------
 
+# - file:
+#     type: gfonts
+#     family: Material Symbols Sharp
+#     weight: 400
+#   id: font_weather_icons_xsmall
+#   size: 20
+#   glyphs:
+#     - "\U0000F159" # clear-night
+#     - "\U0000F15B" # cloudy
+#     - "\U0000F172" # partlycloudy
+#     - "\U0000E818" # fog
+#     - "\U0000F67F" # hail
+#     - "\U0000EBDB" # lightning, lightning-rainy
+#     - "\U0000F61F" # pouring
+#     - "\U0000F61E" # rainy
+#     - "\U0000F61C" # snowy
+#     - "\U0000F61D" # snowy-rainy
+#     - "\U0000E81A" # sunny
+#     - "\U0000EFD8" # windy, windy-variant
+#     - "\U0000F7F3" # exceptional
+#
+# - file:
+#     type: gfonts
+#     family: Material Symbols Sharp
+#     weight: 400
+#   id: font_weather_icons_small
+#   size: 32
+#   glyphs:
+#     - "\U0000F159" # clear-night
+#     - "\U0000F15B" # cloudy
+#     - "\U0000F172" # partlycloudy
+#     - "\U0000E818" # fog
+#     - "\U0000F67F" # hail
+#     - "\U0000EBDB" # lightning, lightning-rainy
+#     - "\U0000F61F" # pouring
+#     - "\U0000F61E" # rainy
+#     - "\U0000F61C" # snowy
+#     - "\U0000F61D" # snowy-rainy
+#     - "\U0000E81A" # sunny
+#     - "\U0000EFD8" # windy, windy-variant
+#     - "\U0000F7F3" # exceptional
+#
   - file:
       type: gfonts
       family: Open Sans
