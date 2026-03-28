@@ -8,7 +8,7 @@ difficulty: 2
 
 ## Product Images
 
-![M5Stack AirQ](M5stack-AirQsensorDisplay.jpeg "M5Stack AirQ esphome edition")
+![M5Stack AirQ](M5stack-AirQsensorDisplay.jpeg "M5Stack AirQ ESPHome edition")
 ![M5Stack AirQ](M5stack-AirQ.webp "M5Stack AirQ Product Details")
 
 ## Description
@@ -77,17 +77,20 @@ Once implemented, document valid **`restore_mode`** values for `esp32_rmt_led_st
 #    wifi_password: "YOUR_WIFI_PASSWORD"
 # 3. Adjust other substitutions as needed (devicename, location, etc)
 # 4. led_restore_mode: RESTORE_AND_OFF (default) or RESTORE_AND_ON after power loss
+# 5. fallback_timezone: IANA zone matching Home Assistant (SNTP when HA API is down)
+# 6. clock_hours: "24" or "12" (12-hour with AM/PM on the e-ink clock)
 
 substitutions:
   devicename: airq
   friendlyname: AirQ
   location: Office
   sensor_interval: 60s
-  log_level: DEBUG
   altitude_compensation: "0m" # Local altitude for CO2 sensor
   temp_offset: -3.0
   temp_time_constant: 1200
   led_restore_mode: RESTORE_AND_OFF
+  fallback_timezone: "Europe/Amsterdam"
+  clock_hours: "12"
 
 esphome:
   name: ${devicename}
@@ -103,15 +106,16 @@ esphome:
     - priority: 800
       then:
         - output.turn_on: enable
-    - priority: 200 # na wifi/sensor init
+    - priority: 200 # after Wi-Fi / sensor init
       then:
         - script.execute: warmup_refresh
 
 esp32:
   variant: esp32s3
 
+# Default INFO; change to DEBUG (etc.) here when troubleshooting.
 logger:
-  level: ${log_level}
+  level: INFO
 
 api:
 
@@ -154,11 +158,11 @@ time:
 
   - platform: sntp
     id: sntp_time
-    timezone: Europe/Amsterdam
-    # optioneel: eigen NTP servers
+    timezone: "${fallback_timezone}"
+    # Optional: custom NTP servers
     # servers:
-    #   - 0.nl.pool.ntp.org
-    #   - 1.nl.pool.ntp.org
+    #   - 0.pool.ntp.org
+    #   - 1.pool.ntp.org
 
 light:
   - platform: esp32_rmt_led_strip
@@ -470,7 +474,7 @@ display:
     reset_duration: 2ms
     update_interval: $sensor_interval
     lambda: |-
-      // 1) Warming up check: eerste 120 s enkel melding tonen
+      // 1) Warming up: first 120 s, show message only
       if (id(uptime_sensor).state < 120) {
         it.fill(COLOR_OFF);
         it.printf(it.get_width()/2, it.get_height()/2 - 16,
@@ -482,37 +486,66 @@ display:
         return;
       }
 
-      // 1) GRID lijnen
-      // Verticale verdeellijn
+      // 2) Grid lines
+      // Vertical divider
       it.line(100, 0,   100, 200);
-      // Horizontale bovenste scheiding
+      // Top horizontal divider (optional)
       //it.line(0,   50, 200, 0);
-      // Middenlijn onder Sen55 alleen rechts (x ≥ 100)
+      // Mid line under SEN55, right side only (x ≥ 100)
       // it.line(100,120,200,120);
-      // Onderste scheiding
+      // Right edge
       it.line(it.get_width()-1, 0, it.get_width()-1, it.get_height());
 
-      // 2) Vakken
-      // SCD40 linksonder, zonder onderrand
-      it.line(0,   50, 0,   160);   // linkerkant
-      it.line(0,   50, 100, 50);    // bovenkant
-      //it.line(100, 50, 100,160);    // rechterkant
-      // Sen55 rechtsboven (0→120)
+      // 3) Layout regions
+      // SCD40: bottom-left, no bottom border on inner box
+      it.line(0,   50, 0,   160);   // left edge
+      it.line(0,   50, 100, 50);    // top edge
+      //it.line(100, 50, 100,160);    // right edge of left column
+      // SEN55: top-right (y 0–160)
       it.rectangle(100, 0, 100, 160);
-      // Wi-Fi rechtsonder (160→200)
+      // Wi-Fi: bottom-right (y 160–200)
       //it.rectangle(100,160,100, 40);
-      // Optioneel: vak linksonder voor je logo
+      // Optional: bottom-left panel for a logo
       it.rectangle(0, 160,100, 40);
 
-      // KLOK & DATUM (kleiner font)
-      auto t = id(sntp_time).now();
-      char buf[20];
-      snprintf(buf, sizeof(buf), "%02d:%02d", t.hour, t.minute);
-      it.printf(2, 0,   id(f24), COLOR_ON,  TextAlign::TOP_LEFT,  "%s", buf);
-      t.strftime(buf, sizeof(buf), "%Y-%m-%d");
-      it.printf(2, 30,  id(f12), COLOR_ON,  TextAlign::TOP_LEFT,  "%s", buf);
+      // 4) Clock & date — HA when API connected; else SNTP + fallback_timezone
+      char buf[24];
+      if (global_api_server->is_connected() && id(ha_time).now().is_valid()) {
+        auto t = id(ha_time).now();
+        if (strcmp("${clock_hours}", "12") == 0) {
+          int h12 = t.hour % 12;
+          if (h12 == 0) {
+            h12 = 12;
+          }
+          const char *suffix = (t.hour < 12) ? "AM" : "PM";
+          snprintf(buf, sizeof(buf), "%d:%02d %s", h12, t.minute, suffix);
+        } else {
+          snprintf(buf, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+        }
+        it.printf(2, 0, id(f24), COLOR_ON, TextAlign::TOP_LEFT, "%s", buf);
+        t.strftime(buf, sizeof(buf), "%Y-%m-%d");
+        it.printf(2, 30, id(f12), COLOR_ON, TextAlign::TOP_LEFT, "%s", buf);
+      } else if (id(sntp_time).now().is_valid()) {
+        auto t = id(sntp_time).now();
+        if (strcmp("${clock_hours}", "12") == 0) {
+          int h12 = t.hour % 12;
+          if (h12 == 0) {
+            h12 = 12;
+          }
+          const char *suffix = (t.hour < 12) ? "AM" : "PM";
+          snprintf(buf, sizeof(buf), "%d:%02d %s", h12, t.minute, suffix);
+        } else {
+          snprintf(buf, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+        }
+        it.printf(2, 0, id(f24), COLOR_ON, TextAlign::TOP_LEFT, "%s", buf);
+        t.strftime(buf, sizeof(buf), "%Y-%m-%d");
+        it.printf(2, 30, id(f12), COLOR_ON, TextAlign::TOP_LEFT, "%s", buf);
+      } else {
+        it.print(2, 0, id(f24), COLOR_ON, TextAlign::TOP_LEFT, "--:--");
+        it.print(2, 30, id(f12), COLOR_ON, TextAlign::TOP_LEFT, "----/--/--");
+      }
 
-      // SCD40 LINKS
+      // 5) SCD40 (left column)
       it.printf(5, 52,  id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SCD40");
       it.printf(5, 75,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Co2:");
       it.printf(90,75,  id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.0f", id(CO2).state);
@@ -521,7 +554,7 @@ display:
       it.printf(5,115,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Humid:");
       it.printf(90,115, id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", id(humidity).state);
 
-      // SEN55 RECHTS
+      // 6) SEN55 (right column)
       it.printf(105,5,  id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SEN55");
       const char* labels[] = {"PM1.0:","PM2.5:","PM4.0:","PM10:","VOC:","NOX:"};
       float vals[] = {
@@ -535,11 +568,11 @@ display:
                   i < 4 ? "%.1f" : "%.0f", vals[i]);
       }
 
-      // 6) Wi-Fi (rechtsonder, y=160→200)
+      // 7) Wi-Fi (bottom-right, y 160–200)
       it.printf(105,161, id(f16), COLOR_ON, TextAlign::TOP_LEFT, "WIFI");
       it.printf(105,180, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "%s", id(ssid).state.c_str());
 
-      // 7) Logo of friendlyname (linksonder)
+      // 8) Logo or friendly name (bottom-left)
       it.filled_rectangle(1, 161, 98, 39, COLOR_ON);
       it.print(50, 180, id(f18), COLOR_OFF, TextAlign::CENTER, "${friendlyname}");
 
