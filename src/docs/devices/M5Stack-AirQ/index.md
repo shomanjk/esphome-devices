@@ -100,6 +100,7 @@ Once implemented, document valid **`restore_mode`** values for `esp32_rmt_led_st
 # 6. clock_hours: "24" or "12" (12-hour with AM/PM on the e-ink clock)
 # 7. Battery: HOLD on GPIO46 (internal switch ALWAYS_ON). Pack voltage on GPIO14 (÷2 divider ×2 in YAML); % on e-ink uses 3.4–4.2 V → 0–100%.
 # 8. battery_shutdown_percent: 0 = disabled; else when % stays at/below this after warm-up, HOLD is released to power off (USB can still run the board).
+# 9. display_temperature_scale: "C" or "F" — e-ink **Temp** row only. **Temperature** API entity, **Temperature Offset**, and raw SEN55/SCD40 temp sensors stay in **°C** so Home Assistant keeps correct units.
 
 substitutions:
   devicename: airq
@@ -112,6 +113,8 @@ substitutions:
   led_restore_mode: RESTORE_AND_OFF
   fallback_timezone: "Europe/Amsterdam"
   clock_hours: "12"
+  # E-ink Temp row only. "C" matches the °C sent to Home Assistant. "F" converts on the display (offset still applied in °C first).
+  display_temperature_scale: "C"
   # 0 = never auto-shutdown on battery %. Otherwise release HOLD at or below this (approximate LiPo %).
   battery_shutdown_percent: "15"
 
@@ -459,6 +462,7 @@ sensor:
     address: 0x69
     update_interval: $sensor_interval
 
+  # Published to Home Assistant in °C (device_class temperature). E-ink scale is display_temperature_scale only.
   - platform: template
     name: Temperature
     id: temperature
@@ -556,6 +560,7 @@ number:
     step: 0.1
     mode: box
 
+  # Always °C: subtracted from the merged average before publish. Not converted when display_temperature_scale is F.
   - platform: template
     name: Temperature Offset
     id: temperature_offset
@@ -655,17 +660,27 @@ display:
         it.print(2, 30, id(f12), COLOR_ON, TextAlign::TOP_LEFT, "----/--/--");
       }
 
-      // 5) SCD40 (left column)
-      it.printf(5, 52,  id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SCD40");
-      it.printf(5, 75,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Co2:");
-      it.printf(90,75,  id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.0f", id(CO2).state);
-      it.printf(5, 95,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Temp:");
-      it.printf(90,95,  id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", id(temperature).state);
-      it.printf(5,115,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Humid:");
-      it.printf(90,115, id(f16), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", id(humidity).state);
+      // 5) SCD40 (left column x=0–100): hug left rule + mid divider; pull values left toward labels
+      it.printf(2, 52,  id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SCD40");
+      it.printf(2, 75,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Co2:");
+      it.printf(96, 75,  id(f16_bold), COLOR_ON, TextAlign::TOP_RIGHT, "%.0f", id(CO2).state);
+      it.printf(2, 95,  id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Temp:");
+      {
+        float temp_c = id(temperature).state;
+        if (strcmp("${display_temperature_scale}", "F") == 0) {
+          char temp_buf[16];
+          float temp_f = isnan(temp_c) ? temp_c : (temp_c * 9.0f / 5.0f + 32.0f);
+          snprintf(temp_buf, sizeof(temp_buf), "%.1fF", temp_f);
+          it.printf(96, 95, id(f16_bold), COLOR_ON, TextAlign::TOP_RIGHT, "%s", temp_buf);
+        } else {
+          it.printf(96, 95, id(f16_bold), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", temp_c);
+        }
+      }
+      it.printf(2, 115, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "Humid:");
+      it.printf(96, 115, id(f16_bold), COLOR_ON, TextAlign::TOP_RIGHT, "%.1f", id(humidity).state);
 
-      // 6) SEN55 (right column)
-      it.printf(105,5,  id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SEN55");
+      // 6) SEN55 (right column x=100–199): hug divider + right rule; pull values left toward labels
+      it.printf(101, 5, id(f16), COLOR_ON, TextAlign::TOP_LEFT, "SEN55");
       const char* labels[] = {"PM1.0:","PM2.5:","PM4.0:","PM10:","VOC:","NOX:"};
       float vals[] = {
         id(PM1_0).state, id(PM2_5).state, id(PM4_0).state, id(PM10_0).state,
@@ -673,14 +688,14 @@ display:
       };
       for(int i = 0; i < 6; i++) {
         int y = 25 + i * 20;
-        it.printf(105, y, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT,  labels[i]);
-        it.printf(190, y, id(f16), COLOR_ON, TextAlign::TOP_RIGHT,
+        it.printf(101, y, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT,  labels[i]);
+        it.printf(196, y, id(f16_bold), COLOR_ON, TextAlign::TOP_RIGHT,
                   i < 4 ? "%.1f" : "%.0f", vals[i]);
       }
 
       // 7) Wi-Fi (bottom-right, y 160–200)
-      it.printf(105,161, id(f16), COLOR_ON, TextAlign::TOP_LEFT, "WIFI");
-      it.printf(105,180, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "%s", id(ssid).state.c_str());
+      it.printf(101, 161, id(f16), COLOR_ON, TextAlign::TOP_LEFT, "WIFI");
+      it.printf(101, 180, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "%s", id(ssid).state.c_str());
 
       // 8) Battery % + friendly name (bottom-left, inverted panel)
       it.filled_rectangle(1, 161, 98, 39, COLOR_ON);
@@ -703,6 +718,13 @@ font:
   - file:
       type: gfonts
       family: Noto Sans Display
+      weight: 700
+    glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
+    id: f16_bold
+    size: 16
+  - file:
+      type: gfonts
+      family: Noto Sans Display
       weight: 500
     glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: f18
@@ -720,7 +742,7 @@ font:
       weight: 500
     glyphs: '&@!,.\"%()+-_:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzåäö/µ³’'
     id: sensor_label_font
-    size: 14
+    size: 16
   - file:
       type: gfonts
       family: Noto Sans Display
