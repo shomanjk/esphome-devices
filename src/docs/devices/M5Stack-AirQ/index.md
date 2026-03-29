@@ -29,7 +29,21 @@ This YAML was adapted from a sample provided by **joshblake87** at
 
 ## Known Issues
 
-- It doesn't utilize the onboard 450mAh battery.
+- **Battery / variants** — [Air Quality](https://docs.m5stack.com/en/core/Air_Quality) and [Air Quality v1.1](https://docs.m5stack.com/en/core/Air_Quality_v1.1) use the same power latch: **GPIO46 (HOLD)** must stay high to run from the onboard **~600 mAh** LiPo when USB is unplugged. The example uses an **internal GPIO switch** (`restore_mode: ALWAYS_ON`, high `setup_priority`) so HOLD is driven during setup, not only in `on_boot`.
+- **Battery** — **GPIO14** senses **VBAT/2** (1 MΩ / 1 MΩ divider on the Air Q schematic); the example YAML multiplies by **2** for pack voltage and shows an approximate **%** on the e-ink (linear map **3.4–4.2 V**; calibrate if needed). **`on_value`** on **battery_percent** triggers one extra **`component.update: disp`** the first time a valid % is published **after the 120 s warm-up**; **`warmup_refresh`** also runs that once at warm-up exit if % is already valid. **CHRG**/**STDBY** from the TP4057 are not routed to the ESP, so true “charging” state is not available in firmware.
+
+**Verification:** With a charged battery, flash firmware, then unplug USB — the device should keep running (Wi‑Fi, sensors, display).
+
+### Battery still dies when USB is unplugged?
+
+Work through these in order:
+
+1. **Confirm the firmware you flashed includes HOLD** — The example uses an internal switch on GPIO46 (`restore_mode: ALWAYS_ON`) so the pin is driven high during component setup, not only from `on_boot`. If you merged an older YAML, you may still be missing that block.
+2. **Charge the pack** — Leave USB connected until the battery is well charged; a very low cell can brown out as soon as Wi‑Fi or the e‑ink updates.
+3. **Wake path** — Per [M5 Air Quality](https://docs.m5stack.com/en/core/Air_Quality) / [v1.1](https://docs.m5stack.com/en/core/Air_Quality_v1.1), after battery wake the MCU must assert HOLD. Boot **from battery** once (USB unplugged, press **WAKE**), then plug USB only to flash; after a successful flash, unplug again and see if it stays on.
+4. **Instant off vs reboot loop** — Instant off usually means HOLD never latched or the pack is dead. A **reboot loop** on battery often points to **brownout** (try shorter `update_interval` on the e‑ink, disable `web_server` temporarily, or test with Wi‑Fi `power_save_mode: none` vs light — as experiments, not final recommendations).
+5. **Evidence on serial** — With USB connected for logging, unplug and watch whether you see a clean shutdown log or power cuts mid-line; that distinguishes software shutdown from power loss.
+6. **Hardware check** — If you can, measure **GPIO46 vs GND** after boot (should be **high** while running). If it never goes high, focus on firmware/pin config; if it stays high but the board still dies, suspect battery or PMIC.
 
 ## LED air quality indicator (planned)
 
@@ -45,22 +59,27 @@ Once implemented, document valid **`restore_mode`** values for `esp32_rmt_led_st
 
 ## GPIO Pinout
 
-| Pin    | Function           |
-| ------ | ------------------ |
-| GPIO1  | Ink Screen Busy    |
-| GPIO2  | Ink Screen RST     |
-| GPIO3  | Ink Screen D/C     |
-| GPIO4  | Ink Screen CS      |
-| GPIO5  | Ink Screen SCK     |
-| GPIO6  | Ink Screen MOSI    |
-| GPIO8  | Button B           |
-| GPIO9  | beep               |
-| GPIO10 | SEN55 Power Switch |
-| GPIO11 | SEN55 SDA          |
-| GPIO12 | SEN55 SCL          |
-| GPIO26 | Speaker Pin 2      |
-| GPIO15 | GROVE A SCL        |
-| GPIO13 | GROVE A SDA        |
+| Pin    | Function                                      |
+| ------ | --------------------------------------------- |
+| GPIO0  | Button A                                      |
+| GPIO1  | Ink Screen Busy                               |
+| GPIO2  | Ink Screen RST                                |
+| GPIO3  | Ink Screen D/C                                |
+| GPIO4  | Ink Screen CS                                 |
+| GPIO5  | Ink Screen SCK                                |
+| GPIO6  | Ink Screen MOSI                               |
+| GPIO8  | Button B                                      |
+| GPIO9  | Buzzer                                        |
+| GPIO10 | SEN55 power switch (AirPWREN)                 |
+| GPIO11 | I2C SDA (SEN55, SCD40, RTC8563)               |
+| GPIO12 | I2C SCL                                       |
+| GPIO13 | GROVE A SDA                                   |
+| GPIO14 | Battery detect (ADC; optional)                |
+| GPIO15 | GROVE A SCL                                   |
+| GPIO21 | SK6812 LED                                    |
+| GPIO26 | Speaker                                       |
+| GPIO42 | WAKE (power / RTC wake; input in example)     |
+| GPIO46 | **HOLD** — drive high to latch battery power  |
 
 ## Example Configuration
 
@@ -79,6 +98,7 @@ Once implemented, document valid **`restore_mode`** values for `esp32_rmt_led_st
 # 4. led_restore_mode: RESTORE_AND_OFF (default) or RESTORE_AND_ON after power loss
 # 5. fallback_timezone: IANA zone matching Home Assistant (SNTP when HA API is down)
 # 6. clock_hours: "24" or "12" (12-hour with AM/PM on the e-ink clock)
+# 7. Battery: HOLD on GPIO46 (internal switch ALWAYS_ON). Pack voltage on GPIO14 (÷2 divider ×2 in YAML); % on e-ink uses 3.4–4.2 V → 0–100%.
 
 substitutions:
   devicename: airq
@@ -105,6 +125,7 @@ esphome:
   on_boot:
     - priority: 800
       then:
+        # SEN55 power (G10). HOLD (G46) is latched by switch power_hold (ALWAYS_ON, setup_priority).
         - output.turn_on: enable
     - priority: 200 # after Wi-Fi / sensor init
       then:
@@ -112,6 +133,11 @@ esphome:
 
 esp32:
   variant: esp32s3
+
+globals:
+  - id: battery_first_draw_done
+    type: bool
+    initial_value: "false"
 
 # Default INFO; change to DEBUG (etc.) here when troubleshooting.
 logger:
@@ -136,6 +162,19 @@ output:
   - platform: gpio
     pin: GPIO10
     id: enable
+
+# HOLD (GPIO46): latch battery power as early as possible in setup (before long-running stacks).
+# on_boot alone can be too late — PMIC may release battery if HOLD is not high soon enough.
+switch:
+  - platform: gpio
+    id: power_hold
+    name: HOLD latch
+    internal: true
+    restore_mode: ALWAYS_ON
+    setup_priority: 1000
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
 
 web_server:
   port: 80
@@ -186,6 +225,15 @@ script:
           then:
             - component.update: disp
             - delay: 1s
+      - if:
+          condition:
+            lambda: |-
+              return !isnan(id(battery_percent).state) && !id(battery_first_draw_done);
+          then:
+            - globals.set:
+                id: battery_first_draw_done
+                value: "true"
+            - component.update: disp
 
 text_sensor:
   - platform: wifi_info
@@ -247,6 +295,54 @@ sensor:
     id: uptime_sensor
     update_interval: 1s
     internal: true
+
+  # VBAT via 1M/1M divider on G14 → pin voltage ≈ Vpack/2 (M5 Air Q schematic).
+  - platform: adc
+    pin: GPIO14
+    id: battery_voltage
+    name: "Battery voltage"
+    attenuation: 12db
+    update_interval: $sensor_interval
+    samples: 4
+    filters:
+      - median:
+          window_size: 5
+          send_every: 5
+          send_first_at: 1
+      - multiply: 2.0
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    device_class: voltage
+    entity_category: diagnostic
+
+  - platform: template
+    name: "Battery level"
+    id: battery_percent
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+    state_class: measurement
+    update_interval: $sensor_interval
+    lambda: |-
+      float v = id(battery_voltage).state;
+      if (isnan(v)) return {};
+      const float v_empty = 3.4f;
+      const float v_full = 4.2f;
+      if (v >= v_full) return 100.0f;
+      if (v <= v_empty) return 0.0f;
+      return (v - v_empty) / (v_full - v_empty) * 100.0f;
+    # First valid % after warm-up: redraw once so the e-ink bar is not stuck until the next display interval.
+    # (Require uptime >= 120 so we do not consume the one shot during the warming-up screen.)
+    on_value:
+      - if:
+          condition:
+            lambda: |-
+              return !isnan(x) && !id(battery_first_draw_done) && id(uptime_sensor).state >= 120.0f;
+          then:
+            - globals.set:
+                id: battery_first_draw_done
+                value: "true"
+            - component.update: disp
 
   - platform: scd4x
     co2:
@@ -389,12 +485,6 @@ binary_sensor:
         pullup: true
       inverted: true
     name: Button B
-
-  - platform: gpio
-    pin:
-      number: GPIO46
-      ignore_strapping_warning: true
-    name: Button Hold
 
   - platform: gpio
     pin:
@@ -572,9 +662,15 @@ display:
       it.printf(105,161, id(f16), COLOR_ON, TextAlign::TOP_LEFT, "WIFI");
       it.printf(105,180, id(sensor_label_font), COLOR_ON, TextAlign::TOP_LEFT, "%s", id(ssid).state.c_str());
 
-      // 8) Logo or friendly name (bottom-left)
+      // 8) Battery % + friendly name (bottom-left, inverted panel)
       it.filled_rectangle(1, 161, 98, 39, COLOR_ON);
-      it.print(50, 180, id(f18), COLOR_OFF, TextAlign::CENTER, "${friendlyname}");
+      if (!isnan(id(battery_percent).state)) {
+        it.printf(50, 166, id(f12), COLOR_OFF, TextAlign::CENTER, "%.0f%%",
+                  id(battery_percent).state);
+      } else {
+        it.print(50, 166, id(f12), COLOR_OFF, TextAlign::CENTER, "--%");
+      }
+      it.print(50, 184, id(f18), COLOR_OFF, TextAlign::CENTER, "${friendlyname}");
 
 font:
   - file:
