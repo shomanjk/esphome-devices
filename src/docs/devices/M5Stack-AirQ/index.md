@@ -30,7 +30,7 @@ This YAML was adapted from a sample provided by **joshblake87** at
 ## Known Issues
 
 - **Battery / variants** — [Air Quality](https://docs.m5stack.com/en/core/Air_Quality) and [Air Quality v1.1](https://docs.m5stack.com/en/core/Air_Quality_v1.1) use the same power latch: **GPIO46 (HOLD)** must stay high to run from the onboard **~600 mAh** LiPo when USB is unplugged. The example uses an **internal GPIO switch** (`restore_mode: ALWAYS_ON`, high `setup_priority`) so HOLD is driven during setup, not only in `on_boot`.
-- **Battery** — **GPIO14** senses **VBAT/2** (1 MΩ / 1 MΩ divider on the Air Q schematic); the example YAML multiplies by **2** for pack voltage and shows an approximate **%** on the e-ink (linear map **3.4–4.2 V**; calibrate if needed). **`on_value`** on **battery_percent** triggers one extra **`component.update: disp`** the first time a valid % is published **after the 120 s warm-up**; **`warmup_refresh`** also runs that once at warm-up exit if % is already valid. **CHRG**/**STDBY** from the TP4057 are not routed to the ESP, so true “charging” state is not available in firmware.
+- **Battery** — **GPIO14** senses **VBAT/2** (1 MΩ / 1 MΩ divider on the Air Q schematic); the example YAML multiplies by **2** for pack voltage and shows an approximate **%** on the e-ink (linear map **3.4–4.2 V**; calibrate if needed). **`on_value`** on **battery_percent** triggers one extra **`component.update: disp`** the first time a valid % is published **after the 120 s warm-up**; **`warmup_refresh`** also runs that once at warm-up exit if % is already valid. **Auto shutdown:** substitution **`battery_shutdown_percent`** (default **15**; set **0** to disable) turns **`power_hold`** off after warm-up if % is still at/below the threshold after a **5 s** debounce — cuts battery power per M5 (**USB may keep the unit running**). **CHRG**/**STDBY** from the TP4057 are not routed to the ESP, so true “charging” state is not available in firmware.
 
 **Verification:** With a charged battery, flash firmware, then unplug USB — the device should keep running (Wi‑Fi, sensors, display).
 
@@ -99,6 +99,7 @@ Once implemented, document valid **`restore_mode`** values for `esp32_rmt_led_st
 # 5. fallback_timezone: IANA zone matching Home Assistant (SNTP when HA API is down)
 # 6. clock_hours: "24" or "12" (12-hour with AM/PM on the e-ink clock)
 # 7. Battery: HOLD on GPIO46 (internal switch ALWAYS_ON). Pack voltage on GPIO14 (÷2 divider ×2 in YAML); % on e-ink uses 3.4–4.2 V → 0–100%.
+# 8. battery_shutdown_percent: 0 = disabled; else when % stays at/below this after warm-up, HOLD is released to power off (USB can still run the board).
 
 substitutions:
   devicename: airq
@@ -111,6 +112,8 @@ substitutions:
   led_restore_mode: RESTORE_AND_OFF
   fallback_timezone: "Europe/Amsterdam"
   clock_hours: "12"
+  # 0 = never auto-shutdown on battery %. Otherwise release HOLD at or below this (approximate LiPo %).
+  battery_shutdown_percent: "15"
 
 esphome:
   name: ${devicename}
@@ -343,6 +346,20 @@ sensor:
                 id: battery_first_draw_done
                 value: "true"
             - component.update: disp
+      - if:
+          condition:
+            lambda: |-
+              return !isnan(x) && (${battery_shutdown_percent}) > 0 && x <= (${battery_shutdown_percent}) && id(uptime_sensor).state >= 120.0f;
+          then:
+            - logger.log: "Battery at or below shutdown threshold; rechecking in 5s"
+            - delay: 5s
+            - if:
+                condition:
+                  lambda: |-
+                    return !isnan(id(battery_percent).state) && id(battery_percent).state <= (${battery_shutdown_percent});
+                then:
+                  - logger.log: "Releasing HOLD — power off on battery (plug USB to charge/boot)"
+                  - switch.turn_off: power_hold
 
   - platform: scd4x
     co2:
