@@ -136,6 +136,9 @@ esphome:
 
 esp32:
   variant: esp32s3
+  # ESPHome 2026+ defaults to ESP-IDF; set explicitly to silence the framework notice at compile time.
+  framework:
+    type: esp-idf
 
 globals:
   - id: battery_first_draw_done
