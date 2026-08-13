@@ -1,0 +1,316 @@
+substitutions:
+  devicename: m5stack-airq
+  friendlyname: M5Stack AirQ
+  sensor_interval: 60s
+  altitude_compensation: "0m"
+  temp_offset: "-3.0"
+  temp_time_constant: "1200"
+  battery_shutdown_voltage: "0"
+
+esphome:
+  name: ${devicename}
+  friendly_name: ${friendlyname}
+  on_boot:
+    - priority: 800
+      then:
+        - output.turn_on: enable_sen55
+    - priority: 200
+      then:
+        - component.update: disp
+
+esp32:
+  variant: esp32s3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+
+logger:
+  level: INFO
+
+wifi:
+  ap: {}
+
+i2c:
+  sda: GPIO11
+  scl: GPIO12
+  scan: false
+  frequency: 50kHz
+  id: bus_a
+
+spi:
+  clk_pin: GPIO05
+  mosi_pin: GPIO06
+
+output:
+  - platform: gpio
+    pin: GPIO10
+    id: enable_sen55
+
+switch:
+  - platform: gpio
+    id: power_hold
+    internal: true
+    restore_mode: ALWAYS_ON
+    setup_priority: 1000
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
+
+sensor:
+  - platform: uptime
+    id: uptime_sensor
+    internal: true
+    update_interval: 10s
+
+  - platform: adc
+    pin: GPIO14
+    id: battery_voltage
+    name: Battery Voltage
+    attenuation: 12db
+    update_interval: ${sensor_interval}
+    samples: 4
+    filters:
+      - median:
+          window_size: 5
+          send_every: 2
+          send_first_at: 1
+      - multiply: 2.0
+    unit_of_measurement: V
+    accuracy_decimals: 2
+    device_class: voltage
+    entity_category: diagnostic
+    on_value:
+      - if:
+          condition:
+            lambda: |-
+              return !isnan(x) && (${battery_shutdown_voltage}) > 0.0f &&
+                     x <= (${battery_shutdown_voltage}) && id(uptime_sensor).state >= 120.0f;
+          then:
+            - delay: 5s
+            - if:
+                condition:
+                  lambda: |-
+                    return !isnan(id(battery_voltage).state) &&
+                           id(battery_voltage).state <= (${battery_shutdown_voltage});
+                then:
+                  - switch.turn_off: power_hold
+
+  - platform: scd4x
+    id: scd40
+    co2:
+      name: CO2
+      id: co2_sensor
+      filters:
+        - lambda: |-
+            if (x >= 300.0f && x <= 2500.0f) return x;
+            return {};
+    temperature:
+      name: SCD40 Temperature
+      id: scd40_temperature
+      entity_category: diagnostic
+      disabled_by_default: true
+      filters:
+        - lambda: |-
+            if (x >= -40.0f && x <= 100.0f) return x;
+            return {};
+    humidity:
+      name: SCD40 Humidity
+      id: scd40_humidity
+      entity_category: diagnostic
+      disabled_by_default: true
+      filters:
+        - lambda: |-
+            if (x >= 0.0f && x <= 100.0f) return x;
+            return {};
+    altitude_compensation: ${altitude_compensation}
+    address: 0x62
+    measurement_mode: low_power_periodic
+    update_interval: ${sensor_interval}
+
+  - platform: sen5x
+    id: sen55
+    pm_1_0:
+      name: PM 1
+      id: pm_1_0
+      accuracy_decimals: 2
+      filters:
+        - filter_out: nan
+    pm_2_5:
+      name: PM 2.5
+      id: pm_2_5
+      accuracy_decimals: 2
+      filters:
+        - filter_out: nan
+    pm_4_0:
+      name: PM 4
+      id: pm_4_0
+      accuracy_decimals: 2
+      filters:
+        - filter_out: nan
+    pm_10_0:
+      name: PM 10
+      id: pm_10_0
+      accuracy_decimals: 2
+      filters:
+        - filter_out: nan
+    temperature:
+      name: SEN55 Temperature
+      id: sen55_temperature
+      accuracy_decimals: 2
+      entity_category: diagnostic
+      disabled_by_default: true
+    humidity:
+      name: SEN55 Humidity
+      id: sen55_humidity
+      accuracy_decimals: 2
+      entity_category: diagnostic
+      disabled_by_default: true
+    voc:
+      name: VOC
+      id: voc
+      accuracy_decimals: 2
+      algorithm_tuning:
+        index_offset: 100
+        learning_time_offset_hours: 12
+        learning_time_gain_hours: 12
+        gating_max_duration_minutes: 180
+        std_initial: 50
+        gain_factor: 230
+    nox:
+      name: NOX
+      id: nox
+      accuracy_decimals: 2
+      algorithm_tuning:
+        index_offset: 100
+        learning_time_offset_hours: 12
+        learning_time_gain_hours: 12
+        gating_max_duration_minutes: 180
+        std_initial: 50
+        gain_factor: 230
+    temperature_compensation:
+      offset: ${temp_offset}
+      normalized_offset_slope: 0
+      time_constant: ${temp_time_constant}
+    acceleration_mode: low
+    store_baseline: true
+    address: 0x69
+    update_interval: ${sensor_interval}
+
+binary_sensor:
+  - platform: gpio
+    name: Button A
+    disabled_by_default: true
+    pin:
+      number: GPIO0
+      ignore_strapping_warning: true
+      mode:
+        input: true
+      inverted: true
+    on_press:
+      then:
+        - component.update: disp
+
+  - platform: gpio
+    name: Button B
+    disabled_by_default: true
+    pin:
+      number: GPIO08
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+
+  - platform: gpio
+    name: Button Power
+    disabled_by_default: true
+    pin: GPIO42
+
+light:
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
+    pin: GPIO21
+    num_leds: 1
+    chipset: SK6812
+    name: LED
+    restore_mode: RESTORE_AND_OFF
+    id: led
+    color_correct: [20%, 20%, 20%]
+
+display:
+  - platform: waveshare_epaper
+    model: 1.54inv2
+    id: disp
+    cs_pin: GPIO04
+    dc_pin:
+      number: GPIO03
+      ignore_strapping_warning: true
+    reset_pin: GPIO02
+    busy_pin:
+      number: GPIO01
+      inverted: false
+    full_update_every: 20
+    reset_duration: 2ms
+    update_interval: ${sensor_interval}
+    lambda: |-
+      it.fill(COLOR_OFF);
+
+      if (id(uptime_sensor).state < 120) {
+        it.printf(it.get_width() / 2, it.get_height() / 2 - 14,
+                  id(font_18), COLOR_ON, TextAlign::CENTER,
+                  "Warming up");
+        it.printf(it.get_width() / 2, it.get_height() / 2 + 14,
+                  id(font_14), COLOR_ON, TextAlign::CENTER,
+                  "Waiting for sensors");
+        return;
+      }
+
+      auto print_sensor = [&](int label_x, int value_x, int y,
+                              const char *label, float value, const char *fmt) {
+        it.printf(label_x, y, id(font_14), COLOR_ON, TextAlign::TOP_LEFT, "%s", label);
+        if (isnan(value)) {
+          it.print(value_x, y, id(font_14), COLOR_ON, TextAlign::TOP_RIGHT, "--");
+        } else {
+          it.printf(value_x, y, id(font_14), COLOR_ON, TextAlign::TOP_RIGHT, fmt, value);
+        }
+      };
+
+      it.line(100, 0, 100, 200);
+      it.line(0, 48, 100, 48);
+      it.rectangle(100, 0, 100, 152);
+      it.rectangle(0, 152, 100, 48);
+      it.line(it.get_width() - 1, 0, it.get_width() - 1, it.get_height());
+
+      it.printf(4, 4, id(font_18), COLOR_ON, TextAlign::TOP_LEFT, "AirQ");
+      print_sensor(4, 96, 27, "Batt", id(battery_voltage).state, "%.2fV");
+
+      it.printf(4, 52, id(font_14), COLOR_ON, TextAlign::TOP_LEFT, "SCD40");
+      print_sensor(4, 96, 75, "CO2", id(co2_sensor).state, "%.0f");
+      print_sensor(4, 96, 95, "Temp", id(scd40_temperature).state, "%.1f");
+      print_sensor(4, 96, 115, "Hum", id(scd40_humidity).state, "%.1f");
+
+      it.printf(104, 4, id(font_14), COLOR_ON, TextAlign::TOP_LEFT, "SEN55");
+      print_sensor(104, 196, 27, "PM1.0", id(pm_1_0).state, "%.1f");
+      print_sensor(104, 196, 47, "PM2.5", id(pm_2_5).state, "%.1f");
+      print_sensor(104, 196, 67, "PM4", id(pm_4_0).state, "%.1f");
+      print_sensor(104, 196, 87, "PM10", id(pm_10_0).state, "%.1f");
+      print_sensor(104, 196, 107, "VOC", id(voc).state, "%.0f");
+      print_sensor(104, 196, 127, "NOX", id(nox).state, "%.0f");
+
+      it.filled_rectangle(1, 153, 98, 46, COLOR_ON);
+      it.print(50, 177, id(font_18), COLOR_OFF, TextAlign::CENTER, "${friendlyname}");
+
+font:
+  - file:
+      type: gfonts
+      family: Noto Sans Display
+      weight: 500
+    glyphs: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .:-_%/"
+    id: font_14
+    size: 14
+  - file:
+      type: gfonts
+      family: Noto Sans Display
+      weight: 500
+    glyphs: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .:-_%/"
+    id: font_18
+    size: 18
