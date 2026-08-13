@@ -4,6 +4,7 @@ date-published: 2025-01-08
 type: sensor
 standard: global
 board: esp32
+project-url: https://github.com/shomanjk/esphome-m5stack-airq
 difficulty: 2
 ---
 
